@@ -1,0 +1,54 @@
+---
+title: "Complex Survey Design & Health Outcomes Report"
+author: "Nasiba Islam"
+format: html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk.set(echo = TRUE, warning = FALSE, message = FALSE)
+library(survey)
+library(gtsummary)
+library(tidyverse)
+```
+
+# 1. Complex Survey Specification
+
+```{r survey-design}
+data(api, package = "survey")
+
+df_clean <- apistrat %>%
+  rename(psu = dnm, strata = stype, weights = pw) %>%
+  mutate(high_performer = factor(ifelse(api00 >= 700, "High", "Low")))
+
+svy_design <- svydesign(
+  ids = ~psu,
+  strata = ~strata,
+  weights = ~weights,
+  nest = TRUE,
+  data = df_clean
+)
+```
+
+# 2. Survey-Weighted Baseline Table
+
+```{r table-1}
+tbl_svysummary(
+  svy_design,
+  by = high_performer,
+  include = c(strata, meals, ell, emer)
+) %>%
+  add_overall() %>%
+  bold_labels()
+```
+
+# 3. Survey Logistic Regression
+
+```{r survey-logistic}
+logistic_model <- svyglm(
+  I(high_performer == "High") ~ meals + ell + emer,
+  design = svy_design,
+  family = quasibinomial()
+)
+
+tbl_regression(logistic_model, exponentiate = TRUE)
+```
